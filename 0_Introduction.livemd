@@ -1,0 +1,190 @@
+# Elixir In Action - Playground
+
+## 4.1.1 Basic Abstractions
+
+```elixir
+defmodule TodoList do
+  @moduledoc """
+  ## Examples
+  
+  iex> todo_list = TodoList.new() |>
+  ...>TodoList.add_entry(~D[2023-12-19], "Dentist") |>
+  ...>TodoList.add_entry(~D[2023-12-20], "Shopping") |>
+  ...>TodoList.add_entry(~D[2023-12-19], "Movies")
+  iex> TodoList.entries(todo_list, ~D[2023-12-19])
+  ["Movies", "Dentist"]
+  iex> TodoList.entries(todo_list, ~D[2023-12-18])
+  []
+  """
+
+  def new(), do: %{}
+
+  def add_entry(todo_list, date, title) do
+    Map.update(todo_list, date, [title], &([title | &1]))
+  end
+
+  def entries(todo_list, date), do: Map.get(todo_list, date, [])
+end
+```
+
+## 4.1.2 Composing Abstractions
+
+```elixir
+defmodule MultiDict do
+  def new(), do: %{}
+
+  def add(dict, key, value) do
+    Map.update(dict, key, [value], &([value | &1]))
+  end
+
+  def get(dict, key) do
+    Map.get(dict, key, [])
+  end
+end
+
+defmodule TodoList2 do
+  @moduledoc """
+  ## Examples
+  
+  iex> alias TodoList2, as: TodoList
+  iex> todo_list = TodoList.new() |>
+  ...>TodoList.add_entry(~D[2023-12-19], "Dentist") |>
+  ...>TodoList.add_entry(~D[2023-12-20], "Shopping") |>
+  ...>TodoList.add_entry(~D[2023-12-19], "Movies")
+  iex> TodoList.entries(todo_list, ~D[2023-12-19])
+  ["Movies", "Dentist"]
+  iex> TodoList.entries(todo_list, ~D[2023-12-18])
+  []
+  """
+
+  def new(), do: MultiDict.new()
+
+  def add_entry(todo_list, date, title), do: MultiDict.add(todo_list, date, title)
+
+  def entries(todo_list, date), do: MultiDict.get(todo_list, date)
+end
+alias TodoList2, as: TodoList
+```
+
+## 4.1.3 Structuring data with maps
+
+```elixir
+defmodule TodoList3 do
+  @moduledoc """
+  ## Examples
+  
+  iex> alias TodoList3, as: TodoList
+  iex> todo_list = TodoList.new() |>
+  ...>TodoList.add_entry(%{date: ~D[2023-12-19],title: "Dentist"}) |>
+  ...>TodoList.add_entry(%{date: ~D[2023-12-20],title: "Shopping"}) |>
+  ...>TodoList.add_entry(%{date: ~D[2023-12-19],title: "Movies"})
+  iex> TodoList.entries(todo_list, ~D[2023-12-19])
+  [
+    %{date: ~D[2023-12-19], title: "Movies"},
+    %{date: ~D[2023-12-19], title: "Dentist"}
+  ]
+  iex> TodoList.entries(todo_list, ~D[2023-12-18])
+  []
+  """
+
+  def new(), do: MultiDict.new()
+
+  def add_entry(todo_list, entry), do: MultiDict.add(todo_list, entry.date, entry)
+
+  def entries(todo_list, date), do: MultiDict.get(todo_list, date)
+end
+alias TodoList3, as: TodoList
+```
+
+## 4.2.1 Generating Ids (with a twist)
+
+```elixir
+defmodule Entry do
+  defstruct [:id, :date, :title]
+
+  def new(id, date, title), do: %Entry{id: id, date: date, title: title}
+end
+
+defmodule TodoList4 do
+  @moduledoc """
+  ## Examples
+  
+  iex> alias TodoList4, as: TodoList
+  iex> todo_list = TodoList.new() |>
+  ...>TodoList.add_entry(%{date: ~D[2023-12-19], title: "Dentist"}) |>
+  ...>TodoList.add_entry(%{date: ~D[2023-12-20], title: "Shopping"}) |>
+  ...>TodoList.add_entry(%{date: ~D[2023-12-19], title: "Movies"})
+  iex> TodoList.entries(todo_list, ~D[2023-12-19])
+  [
+    %Entry{date: ~D[2023-12-19], id: 1, title: "Dentist"},
+    %Entry{date: ~D[2023-12-19], id: 3, title: "Movies"}
+  ]
+  iex> TodoList.entries(todo_list, ~D[2023-12-18])
+  []
+  """
+
+  defstruct next_id: 1, entries: %{}
+
+  def new(), do: %TodoList4{}
+
+  def add_entry(%TodoList4{} = todo_list, %{date: date, title: title}) do
+    entry = Entry.new(todo_list.next_id, date, title)
+    entries = Map.put(todo_list.entries, todo_list.next_id, entry)
+    %TodoList4{todo_list | next_id: entry.id + 1, entries: entries}
+  end
+
+  def entries(todo_list, date) do
+    Map.values(todo_list.entries)
+      |> Enum.filter(&(&1.date == date))
+  end
+end
+alias TodoList4, as: TodoList
+```
+
+## 4.2.2 Updating Entries
+
+```elixir
+defmodule TodoList5 do
+  @moduledoc """
+  ## Examples
+  
+  iex> alias TodoList5, as: TodoList
+  iex> todo_list = TodoList.new() |>
+  ...> TodoList.add_entry(%{date: ~D[2023-12-19], title: "Dentist"}) |>
+  ...> TodoList.update_entry(1, fn entry -> %Entry{id: entry.id, date: ~D[2023-12-20], title: "UpdatedMovies"} end) |>
+  ...> TodoList.update_entry(30, &(&1))
+  iex> TodoList.entries(todo_list, ~D[2023-12-20])
+  [
+    %Entry{date: ~D[2023-12-20], id: 1, title: "UpdatedMovies"},
+  ]
+  iex> TodoList.entries(todo_list, ~D[2023-12-19])
+  []
+  """
+
+  defstruct next_id: 1, entries: %{}
+
+  def new(), do: %TodoList5{}
+
+  def add_entry(%TodoList5{} = todo_list, %{date: date, title: title}) do
+    entry = Entry.new(todo_list.next_id, date, title)
+    entries = Map.put(todo_list.entries, todo_list.next_id, entry)
+    %TodoList5{todo_list | next_id: entry.id + 1, entries: entries}
+  end
+
+  def entries(%TodoList5{} = todo_list, date) do
+    Map.values(todo_list.entries)
+      |> Enum.filter(&(&1.date == date))
+  end
+
+  def update_entry(%TodoList5{} = todo_list, id, updater_fun) do    
+    case Map.fetch(todo_list.entries, id) do
+      :error -> todo_list
+      {:ok, entry} -> 
+        updated_entry = updater_fun.(entry)
+        updated_entries = %{todo_list.entries | id => updated_entry}
+        %TodoList5{todo_list | entries: updated_entries}
+    end
+  end
+end
+alias TodoList5, as: TodoList
+```
