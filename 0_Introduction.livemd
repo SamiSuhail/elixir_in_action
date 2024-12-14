@@ -1,5 +1,12 @@
 # Elixir In Action - Playground
 
+```elixir
+defmodule NotebookHelpers do
+  def directory(), do: (__ENV__.file |> Path.dirname())
+  def file_path(filename), do: directory() <> "/files/" <> filename
+end
+```
+
 ## 4.1.1 Basic Abstractions
 
 ```elixir
@@ -176,15 +183,196 @@ defmodule TodoList5 do
       |> Enum.filter(&(&1.date == date))
   end
 
-  def update_entry(%TodoList5{} = todo_list, id, updater_fun) do    
-    case Map.fetch(todo_list.entries, id) do
+  def update_entry(%TodoList5{} = todo_list, entry_id, updater_fun) do    
+    case Map.fetch(todo_list.entries, entry_id) do
       :error -> todo_list
       {:ok, entry} -> 
         updated_entry = updater_fun.(entry)
-        updated_entries = %{todo_list.entries | id => updated_entry}
+        updated_entries = %{todo_list.entries | entry_id => updated_entry}
         %TodoList5{todo_list | entries: updated_entries}
     end
   end
 end
 alias TodoList5, as: TodoList
+```
+
+## 4.2.3 Immutable hierarchical updates
+
+```elixir
+defmodule TodoList6 do
+  @moduledoc """
+  ## Examples
+  
+  iex> alias TodoList6, as: TodoList
+  iex> todo_list = TodoList.new() |>
+  ...> TodoList.add_entry(%{date: ~D[2023-12-19], title: "Dentist"}) |>
+  ...> TodoList.update_entry(1, fn entry -> %Entry{id: entry.id, date: ~D[2023-12-20], title: "UpdatedMovies"} end) |>
+  ...> TodoList.update_entry(30, &(&1))
+  iex> TodoList.entries(todo_list, ~D[2023-12-20])
+  [
+    %Entry{date: ~D[2023-12-20], id: 1, title: "UpdatedMovies"},
+  ]
+  iex> TodoList.entries(todo_list, ~D[2023-12-19])
+  []
+  iex> TodoList.delete_entry(todo_list, 1) |> TodoList.entries(~D[2023-12-20])
+  []
+  """
+
+  defstruct next_id: 1, entries: %{}
+
+  def new(), do: %TodoList6{}
+
+  def add_entry(%TodoList6{} = todo_list, %{date: date, title: title}) do
+    entry = Entry.new(todo_list.next_id, date, title)
+    entries = Map.put(todo_list.entries, todo_list.next_id, entry)
+    %TodoList6{todo_list | next_id: entry.id + 1, entries: entries}
+  end
+
+  def entries(%TodoList6{} = todo_list, date) do
+    Map.values(todo_list.entries)
+      |> Enum.filter(&(&1.date == date))
+  end
+
+  def update_entry(%TodoList6{} = todo_list, entry_id, updater_fun) do    
+    case Map.fetch(todo_list.entries, entry_id) do
+      :error -> todo_list
+      {:ok, entry} -> 
+        put_in(todo_list.entries[entry_id], updater_fun.(entry))
+    end
+  end
+
+  def delete_entry(%TodoList6{} = todo_list, entry_id) do
+    updated_entries = todo_list.entries |> Map.delete(entry_id)
+    %TodoList6{todo_list | entries: updated_entries}
+  end
+end
+alias TodoList6, as: TodoList
+```
+
+## 4.2.4 Iterative updates
+
+```elixir
+defmodule TodoList7 do
+  @moduledoc """
+  ## Examples
+  
+  iex> alias TodoList7, as: TodoList
+  iex> entries = [
+  ...> %{date: ~D[2023-12-19], title: "Dentist"},
+  ...> %{date: ~D[2023-12-20], title: "Shopping"},
+  ...> %{date: ~D[2023-12-19], title: "Movies"},
+  ...> ]
+  iex> TodoList.new(entries) 
+  %TodoList7 {
+    next_id: 4, 
+    entries: %{
+      1 => %Entry{id: 1, date: ~D[2023-12-19], title: "Dentist"}, 
+      2 => %Entry{id: 2, date: ~D[2023-12-20], title: "Shopping"}, 
+      3 => %Entry{id: 3, date: ~D[2023-12-19], title: "Movies"}
+    }
+  }
+  """
+
+  defstruct next_id: 1, entries: %{}
+
+  def new(entries \\ []) do
+    Enum.reduce(entries, %TodoList7{}, &(add_entry(&2, &1)))
+  end
+
+  def add_entry(%TodoList7{} = todo_list, %{date: date, title: title}) do
+    entry = Entry.new(todo_list.next_id, date, title)
+    entries = Map.put(todo_list.entries, todo_list.next_id, entry)
+    %TodoList7{todo_list | next_id: entry.id + 1, entries: entries}
+  end
+
+  def entries(%TodoList7{} = todo_list, date) do
+    Map.values(todo_list.entries)
+      |> Enum.filter(&(&1.date == date))
+  end
+
+  def update_entry(%TodoList7{} = todo_list, entry_id, updater_fun) do    
+    case Map.fetch(todo_list.entries, entry_id) do
+      :error -> todo_list
+      {:ok, entry} -> 
+        put_in(todo_list.entries[entry_id], updater_fun.(entry))
+    end
+  end
+
+  def delete_entry(%TodoList7{} = todo_list, entry_id) do
+    updated_entries = todo_list.entries |> Map.delete(entry_id)
+    %TodoList7{todo_list | entries: updated_entries}
+  end
+end
+alias TodoList7, as: TodoList
+```
+
+## 4.2.5 Exercise: Importing from a file
+
+```elixir
+defmodule TodoList7.CsvImporter do
+  @moduledoc """
+  ## Examples
+
+  iex> alias TodoList7, as: TodoList
+  iex> TodoList.CsvImporter.import("todos.csv")
+  %TodoList7{
+    next_id: 4,
+    entries: %{
+      1 => %Entry{id: 1, date: ~D[2023-12-19], title: "Dentist"},
+      2 => %Entry{id: 2, date: ~D[2023-12-20], title: "Shopping"},
+      3 => %Entry{id: 3, date: ~D[2023-12-19], title: "Movies"}
+    }
+  }
+  """
+  
+  def import(file_name) do
+    NotebookHelpers.file_path(file_name)
+      |> File.stream!(:line)
+      |> Stream.map(&line_to_entry/1)
+      |> TodoList.new()
+  end
+
+  defp line_to_entry(line) do
+    [date_string, title] = String.trim(line) 
+      |> String.split(",", trim: true)
+    
+    date = Date.from_iso8601!(date_string)
+    
+    Map.new([{:date, date}, {:title, title}] )
+  end
+end
+
+TodoList.CsvImporter.import("todos.csv")
+```
+
+## 4.3.3 Built-in protocols
+
+```elixir
+defimpl Collectable, for: TodoList7 do
+  @moduledoc """
+  ## Examples
+  iex> alias TodoList7, as: TodoList
+  iex> todo_list = TodoList.CsvImporter.import("todos.csv")
+  iex> Enum.into([%{date: ~D[2023-12-21], title: "MyBook"}], todo_list)
+  %TodoList7{
+    next_id: 5,
+    entries: %{
+      1 => %Entry{id: 1, date: ~D[2023-12-19], title: "Dentist"},
+      2 => %Entry{id: 2, date: ~D[2023-12-20], title: "Shopping"},
+      3 => %Entry{id: 3, date: ~D[2023-12-19], title: "Movies"},
+      4 => %Entry{id: 4, date: ~D[2023-12-21], title: "MyBook"},
+    }
+  }
+  """
+  
+  def into(todo_list) do
+    fun = fn 
+      todo_list_acc, {:cont, entry} -> TodoList7.add_entry(todo_list_acc, entry)
+      todo_list_acc, :done -> todo_list_acc
+      _, :halt -> :ok
+    end
+
+    {todo_list, fun}
+  end
+end
 ```
