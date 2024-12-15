@@ -1,4 +1,4 @@
-# Elixir In Action - Playground
+# Elixir In Action - Part 1 - Functional Elixir
 
 ```elixir
 defmodule NotebookHelpers do
