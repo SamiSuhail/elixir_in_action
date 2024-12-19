@@ -380,9 +380,254 @@ TodoServer.add_entry(
    %{date: ~D[2023-12-19], title: "Movies"}
  )
 
-TodoServer.entries(todo_server, ~D[2023-12-19])
 [
- %{date: ~D[2023-12-19], id: 3, title: "Movies"},
- %{date: ~D[2023-12-19], id: 1, title: "Dentist"}
-]
+  %Entry{id: 1, date: ~D[2023-12-19], title: "Dentist"},
+  %Entry{id: 3, date: ~D[2023-12-19], title: "Movies"}
+] = TodoServer.entries(todo_server, ~D[2023-12-19])
+
+TodoServer.update_entry(todo_server, 1, fn entry -> %Entry{entry | title: "DentistUpdated"} end)
+
+[
+  %Entry{id: 1, date: ~D[2023-12-19], title: "DentistUpdated"},
+  %Entry{id: 3, date: ~D[2023-12-19], title: "Movies"}
+] = TodoServer.entries(todo_server, ~D[2023-12-19])
+
+TodoServer.delete_entry(todo_server, 1)
+[
+  %Entry{id: 3, date: ~D[2023-12-19], title: "Movies"}
+] = TodoServer.entries(todo_server, ~D[2023-12-19])
+
+:ok
+```
+
+## 5.3.5 Registered Processes (Singleton)
+
+```elixir
+defmodule SingletonTodoServer do
+  def start() do
+    pid = spawn(fn -> loop(TodoList.new()) end)
+    Process.register(pid, :todo_server)
+  end
+
+  def add_entry(entry) do
+    send(:todo_server, {:add, entry})
+  end
+
+  def update_entry(entry_id, update_fun) do
+    send(:todo_server, {:update, entry_id, update_fun})
+  end
+
+  def delete_entry(entry_id) do
+    send(:todo_server, {:delete, entry_id})
+  end
+
+  def entries(date) do
+    send(:todo_server, {:entries, self(), date})
+    receive do
+      {:result, result} -> result
+    end
+  end
+
+  defp loop(todo_list) do
+    new_todo_list = receive do
+      message -> process_message(todo_list, message)
+    after 
+      500 -> :error
+    end
+
+    loop(new_todo_list)
+  end
+
+  defp process_message(todo_list, {:add, entry}) do
+    TodoList.add_entry(todo_list, entry)
+  end
+
+  defp process_message(todo_list, {:update, entry_id, update_fun}) do
+    TodoList.update_entry(todo_list, entry_id, update_fun)
+  end
+
+  defp process_message(todo_list, {:delete, entry_id}) do
+    TodoList.delete_entry(todo_list, entry_id)
+  end
+
+  defp process_message(todo_list, {:entries, client_pid, date}) do
+    entries = TodoList.entries(todo_list, date)
+    send(client_pid, {:result, entries})
+    todo_list
+  end
+end
+
+
+SingletonTodoServer.start()
+SingletonTodoServer.add_entry(%{date: ~D[2023-12-19], title: "Dentist"})
+SingletonTodoServer.add_entry(%{date: ~D[2023-12-20], title: "Shopping"})
+SingletonTodoServer.add_entry(%{date: ~D[2023-12-19], title: "Movies"})
+
+[
+  %Entry{id: 1, date: ~D[2023-12-19], title: "Dentist"},
+  %Entry{id: 3, date: ~D[2023-12-19], title: "Movies"}
+] = SingletonTodoServer.entries(~D[2023-12-19])
+
+SingletonTodoServer.update_entry(1, fn entry -> %Entry{entry | title: "DentistUpdated"} end)
+
+[
+  %Entry{id: 1, date: ~D[2023-12-19], title: "DentistUpdated"},
+  %Entry{id: 3, date: ~D[2023-12-19], title: "Movies"}
+] = SingletonTodoServer.entries(~D[2023-12-19])
+
+SingletonTodoServer.delete_entry(1)
+[
+  %Entry{id: 3, date: ~D[2023-12-19], title: "Movies"}
+] = SingletonTodoServer.entries(~D[2023-12-19])
+
+:ok
+```
+
+## 6. GenServer - 6.1.2 Implementing the generic code
+
+```elixir
+defmodule MyGenServer do
+  def start(callback_module) do
+    spawn(fn -> loop(callback_module, callback_module.init()) end)
+  end
+
+  def call(server_pid, message) do
+    send(server_pid, {:call, message, self()})
+    receive do
+      response -> {:response, response}
+    end
+  end
+
+  def cast(server_pid, message) do
+    send(server_pid, {:cast, message})
+    :ok
+  end
+
+  defp loop(callback_module, state) do
+    new_state = receive do
+      
+      {:call, message, client_id} -> 
+        {response, new_state} = callback_module.handle_call(message, state)
+        send(client_id, response)
+        new_state
+        
+      {:cast, message} -> 
+        callback_module.handle_cast(message, state)
+    end
+    loop(callback_module, new_state)
+  end
+end
+
+defmodule KeyValueStore do
+  def start do
+    MyGenServer.start(__MODULE__)
+  end
+
+  def put(pid, key, value) do
+    MyGenServer.call(pid, {:put, key, value})
+  end
+
+  def get(pid, key) do
+    MyGenServer.call(pid, {:get, key})
+  end
+
+  def reset(pid) do
+    MyGenServer.cast(pid, :reset)
+  end
+  
+  def init(), do: %{}
+  def handle_call({:put, key, value}, map) do
+    {:ok, Map.put(map, key, value)}
+  end
+
+  def handle_call({:get, key}, map) do
+    {Map.get(map, key), map}
+  end
+
+  def handle_cast(:reset, _map) do
+    %{}
+  end
+end
+
+
+pid = KeyValueStore.start()
+KeyValueStore.put(pid, :some_key, :some_value) |> IO.inspect()
+KeyValueStore.get(pid, :some_key) |> IO.inspect()
+KeyValueStore.reset(pid) |> IO.inspect()
+KeyValueStore.get(pid, :some_key) |> IO.inspect()
+KeyValueStore.put(pid, :some_key, :some_value) |> IO.inspect()
+KeyValueStore.get(pid, :some_key) |> IO.inspect()
+```
+
+## 6.1.5 Exercise: Refactoring the to-do server
+
+```elixir
+defmodule SimpleTodoServer do
+  def start() do
+    MyGenServer.start(__MODULE__)
+  end
+  
+  def add_entry(pid, entry) do
+    MyGenServer.cast(pid, {:add, entry})
+  end
+  def delete_entry(pid, entry_id) do
+    MyGenServer.cast(pid, {:delete, entry_id})
+  end
+  def update_entry(pid, entry_id, update_fun) do
+    MyGenServer.cast(pid, {:update, entry_id, update_fun})
+  end
+  def entries(pid, date) do
+    MyGenServer.call(pid, {:entries, date})
+  end
+
+  def init(), do: TodoList.new()
+  
+  def handle_cast({:add, entry}, todo_list) do
+    TodoList.add_entry(todo_list, entry)
+  end
+  def handle_cast({:delete, entry_id}, todo_list) do
+    TodoList.delete_entry(todo_list, entry_id)
+  end
+  def handle_cast({:update, entry_id, update_fun}, todo_list) do
+    TodoList.update_entry(todo_list, entry_id, update_fun)
+  end
+  def handle_call({:entries, date}, todo_list) do
+    {TodoList.entries(todo_list, date), todo_list}
+  end
+end
+
+todo_server = SimpleTodoServer.start()
+SimpleTodoServer.add_entry(
+   todo_server,
+   %{date: ~D[2023-12-19], title: "Dentist"}
+ )
+
+SimpleTodoServer.add_entry(
+   todo_server,
+   %{date: ~D[2023-12-20], title: "Shopping"}
+ )
+
+SimpleTodoServer.add_entry(
+   todo_server,
+   %{date: ~D[2023-12-19], title: "Movies"}
+ )
+
+{:response, [
+  %Entry{id: 1, date: ~D[2023-12-19], title: "Dentist"},
+  %Entry{id: 3, date: ~D[2023-12-19], title: "Movies"}
+]} = SimpleTodoServer.entries(todo_server, ~D[2023-12-19])
+
+SimpleTodoServer.update_entry(todo_server, 1, fn entry -> %Entry{entry | title: "DentistUpdated"} end)
+
+{:response, [
+  %Entry{id: 1, date: ~D[2023-12-19], title: "DentistUpdated"},
+  %Entry{id: 3, date: ~D[2023-12-19], title: "Movies"}
+]} = SimpleTodoServer.entries(todo_server, ~D[2023-12-19])
+
+SimpleTodoServer.delete_entry(todo_server, 1)
+{:response, [
+  %Entry{id: 3, date: ~D[2023-12-19], title: "Movies"}
+]} = SimpleTodoServer.entries(todo_server, ~D[2023-12-19])
+
+:ok
 ```
