@@ -1,7 +1,7 @@
 defmodule Todo.Database do
   use GenServer
 
-  @db_folder "./db"
+  @db_folder "./.db"
 
   def start(), do: GenServer.start(__MODULE__, nil, name: __MODULE__)
 
@@ -27,7 +27,6 @@ defmodule Todo.Database do
   def handle_call({:get, key}, _, state) do
     path =
       Path.expand(file_name(key))
-      |> IO.inspect()
 
     term =
       case File.read(path) do

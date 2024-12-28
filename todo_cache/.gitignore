@@ -21,3 +21,6 @@ todo-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+
+# Database file, this is likely only temporary while the todo servers are persisted on local storage
+.db/
