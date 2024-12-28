@@ -5,6 +5,8 @@ defmodule Todo.DatabaseWorker do
 
   def store(pid, key, term), do: GenServer.cast(pid, {:store, key, term})
 
+  def delete(pid, key), do: GenServer.cast(pid, {:delete, key})
+
   def get(pid, key), do: GenServer.call(pid, {:get, key})
 
   @impl true
@@ -16,6 +18,13 @@ defmodule Todo.DatabaseWorker do
   def handle_cast({:store, key, term}, db_folder) do
     file_name(db_folder, key)
     |> File.write!(:erlang.term_to_binary(term))
+
+    {:noreply, db_folder}
+  end
+
+  def handle_cast({:delete, key}, db_folder) do
+    file_name(db_folder, key)
+    |> File.rm!()
 
     {:noreply, db_folder}
   end

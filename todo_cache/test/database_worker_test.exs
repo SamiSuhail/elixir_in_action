@@ -7,14 +7,15 @@ defmodule Todo.DatabaseWorker.Test do
   end
 
   test "happy path" do
-    key = "database worker happy path"
+    key = UUID.uuid4()
     term = Todo.List.new()
 
     {:ok, worker_pid} = Todo.DatabaseWorker.start(@db_folder)
 
     Todo.DatabaseWorker.store(worker_pid, key, term)
-    stored_term = Todo.DatabaseWorker.get(worker_pid, key)
+    assert Todo.DatabaseWorker.get(worker_pid, key) == term
 
-    assert stored_term == term
+    Todo.DatabaseWorker.delete(worker_pid, key)
+    assert Todo.DatabaseWorker.get(worker_pid, key) == nil
   end
 end

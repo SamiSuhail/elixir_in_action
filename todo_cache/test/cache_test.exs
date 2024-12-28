@@ -4,7 +4,7 @@ defmodule Todo.Cache.Test do
   test "happy path" do
     # Arrange
     {:ok, cache_pid} = Todo.Cache.start()
-    server_name = "cache test happy path"
+    server_name = UUID.uuid4()
     server_pid = Todo.Cache.server_process(cache_pid, server_name)
 
     # Act + Assert
@@ -12,7 +12,10 @@ defmodule Todo.Cache.Test do
     assert Todo.Server.add_entry(server_pid, new_entry) == :ok
 
     assert Todo.Server.entries(server_pid, ~D[2024-02-02]) == [
-             %Todo.Entry{id: 1, date: ~D[2024-02-02], title: "Entry 1"}
+             %Todo.Entry{id: 1, date: ~D[2024-02-02], title: "Entry 1"},
            ]
+
+    Todo.Server.cleanup(server_pid)
+    assert Todo.Server.entries(server_pid, ~D[2024-02-02]) == []
   end
 end
