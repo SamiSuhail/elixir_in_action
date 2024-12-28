@@ -21,43 +21,41 @@ defmodule Todo.Database do
   def handle_continue(_continue_arg, _state) do
     File.mkdir_p!(@db_folder)
 
-    initial_state = %{
-      0 => Todo.DatabaseWorker.start(@db_folder),
-      1 => Todo.DatabaseWorker.start(@db_folder),
-      2 => Todo.DatabaseWorker.start(@db_folder),
-    }
+    pids = 0..2
+    |> Enum.map(fn num ->
+      {:ok, pid} = Todo.DatabaseWorker.start(@db_folder)
+      {num, pid}
+    end)
+    |> Map.new()
 
-    {:noreply, initial_state}
+    {:noreply, pids}
   end
 
   @impl true
-  def handle_cast({:store, key, term}, state) do
-    file_name(key)
-    |> File.write!(:erlang.term_to_binary(term))
+  def handle_cast({:store, key, term}, pids) do
+    pid = worker_pid(pids, key)
+    Todo.DatabaseWorker.store(pid, key, term)
 
-    {:noreply, state}
+    {:noreply, pids}
   end
 
-  def handle_cast({:delete, key}, state) do
-    file_name(key)
-    |> File.rm!()
+  def handle_cast({:delete, key}, pids) do
+    pid = worker_pid(pids, key)
+    Todo.DatabaseWorker.delete(pid, key)
 
-    {:noreply, state}
+    {:noreply, pids}
   end
 
   @impl true
-  def handle_call({:get, key}, _, state) do
-    path =
-      Path.expand(file_name(key))
+  def handle_call({:get, key}, _, pids) do
+    pid = worker_pid(pids, key)
+    term = Todo.DatabaseWorker.get(pid, key)
 
-    term =
-      case File.read(path) do
-        {:ok, contents} -> :erlang.binary_to_term(contents)
-        _ -> nil
-      end
-
-    {:reply, term, state}
+    {:reply, term, pids}
   end
 
-  defp file_name(key), do: Path.join(@db_folder, to_string(key))
+  defp worker_pid(pids, key) do
+    key_hash = :erlang.phash2(key, 3)
+    Map.get(pids, key_hash)
+  end
 end
