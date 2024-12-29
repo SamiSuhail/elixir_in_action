@@ -1,0 +1,17 @@
+# 8. Fault tolerance basics
+
+## Section
+
+```elixir
+spawn(fn -> 
+    spawn_monitor(fn -> 
+        raise("Error!")
+      end)
+    receive do
+      message -> IO.inspect(message, label: "monitor response")
+    end
+    Process.sleep(1000)
+    IO.puts("Done!")
+  end)
+IO.puts("Processes spawned!")
+```
