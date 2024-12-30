@@ -10,7 +10,7 @@ defmodule Todo.DatabaseWorker.Test do
     key = UUID.uuid4()
     term = Todo.List.new()
 
-    {:ok, worker_pid} = Todo.DatabaseWorker.start(@db_folder)
+    {:ok, worker_pid} = Todo.DatabaseWorker.start_link(@db_folder)
 
     Todo.DatabaseWorker.store(worker_pid, key, term)
     assert Todo.DatabaseWorker.get(worker_pid, key) == term

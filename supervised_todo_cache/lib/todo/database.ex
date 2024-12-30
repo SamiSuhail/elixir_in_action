@@ -3,7 +3,7 @@ defmodule Todo.Database do
 
   @db_folder "./.db"
 
-  def start(), do: GenServer.start(__MODULE__, nil, name: __MODULE__)
+  def start_link(), do: GenServer.start_link(__MODULE__, nil, name: __MODULE__)
 
   def store(key, term) do
     key
@@ -37,7 +37,7 @@ defmodule Todo.Database do
     File.mkdir_p!(@db_folder)
 
     pids = for num <- 0..2, into: %{} do
-      {:ok, pid} = Todo.DatabaseWorker.start(@db_folder)
+      {:ok, pid} = Todo.DatabaseWorker.start_link(@db_folder)
       {num, pid}
     end
 
