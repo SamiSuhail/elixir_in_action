@@ -1,9 +1,9 @@
-defmodule Todo.Cache.Test do
+defmodule Todo.System.Test do
   use ExUnit.Case
 
   test "happy path" do
     # Arrange
-    {:ok, _} = Supervisor.start_link([Todo.Cache], strategy: :one_for_one)
+    {:ok, _} = Todo.System.start_link()
     server_name = UUID.uuid4()
     server_pid = Todo.Cache.server_process(server_name)
     # Act + Assert
