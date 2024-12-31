@@ -36,10 +36,11 @@ defmodule Todo.Database do
   def handle_continue(_continue_arg, _state) do
     File.mkdir_p!(@db_folder)
 
-    pids = for num <- 0..2, into: %{} do
-      {:ok, pid} = Todo.DatabaseWorker.start_link(@db_folder)
-      {num, pid}
-    end
+    pids =
+      for num <- 0..2, into: %{} do
+        {:ok, pid} = Todo.DatabaseWorker.start_link(@db_folder)
+        {num, pid}
+      end
 
     {:noreply, pids}
   end
