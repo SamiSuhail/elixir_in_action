@@ -1,7 +1,11 @@
 defmodule Todo.Server do
-  use GenServer
+  use GenServer, restart: :temporary
 
-  def start_link(name), do: GenServer.start_link(__MODULE__, name)
+  def start_link(name),
+    do:
+      GenServer.start_link(__MODULE__, name,
+        name: Todo.ProcessRegistry.via_tuple({__MODULE__, name})
+      )
 
   def add_entry(todo_server, entry) do
     GenServer.cast(todo_server, {:add, entry})
