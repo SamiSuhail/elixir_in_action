@@ -8,6 +8,7 @@ defmodule Todo.MyRegistry do
   def register(name) do
     server_pid = Process.whereis(__MODULE__)
     Process.link(server_pid)
+
     if :ets.insert_new(__MODULE__, {name, self()}) do
       :ok
     else

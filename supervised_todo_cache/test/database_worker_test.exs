@@ -10,7 +10,6 @@ defmodule Todo.DatabaseWorker.Test do
     key = UUID.uuid4()
     term = Todo.List.new()
 
-    Todo.ProcessRegistry.start_link()
     worker_id = UUID.uuid4()
     Todo.DatabaseWorker.start_link({@db_folder, worker_id})
 

@@ -3,7 +3,6 @@ defmodule Todo.System.Test do
 
   test "happy path" do
     # Arrange
-    {:ok, _} = Todo.System.start_link()
     server_name = UUID.uuid4()
     server_pid = Todo.Cache.server_process(server_name)
     # Act + Assert
