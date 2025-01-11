@@ -6,41 +6,33 @@ defmodule Todo.MyRegistry do
   end
 
   def register(name) do
-    GenServer.call(__MODULE__, {:register, name, self()})
+    server_pid = Process.whereis(__MODULE__)
+    Process.link(server_pid)
+    if :ets.insert_new(__MODULE__, {name, self()}) do
+      :ok
+    else
+      :error
+    end
   end
 
   def lookup(name) do
-    GenServer.call(__MODULE__, {:lookup, name})
+    case :ets.lookup(__MODULE__, name) do
+      [] -> nil
+      [{_, pid}] -> pid
+    end
   end
 
   @impl GenServer
   def init(_) do
     Process.flag(:trap_exit, true)
-    {:ok, %{}}
+    :ets.new(__MODULE__, [:named_table, :public, read_concurrency: true])
+    {:ok, nil}
   end
 
   @impl GenServer
-  def handle_call({:register, name, pid}, _, pids) do
-    case Map.fetch(pids, name) do
-      {:ok, _pid} ->
-        {:reply, :error, pids}
-
-      _ ->
-        new_pids = Map.put_new(pids, name, pid)
-        Process.link(pid)
-        {:reply, :ok, new_pids}
-    end
-  end
-
-  @impl GenServer
-  def handle_call({:lookup, name}, _, pids) do
-    pid = Map.get(pids, name)
-    {:reply, pid, pids}
-  end
-
-  @impl GenServer
-  def handle_info({:EXIT, pid, _reason}, pids) do
-    new_pids = Map.filter(pids, fn {_key, curr_pid} -> curr_pid != pid end)
-    {:noreply, new_pids}
+  def handle_info({:EXIT, pid, _reason}, state) do
+    IO.puts("deleting...")
+    :ets.match_delete(__MODULE__, {:_, pid})
+    {:noreply, state}
   end
 end

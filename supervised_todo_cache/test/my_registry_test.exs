@@ -2,14 +2,12 @@ defmodule Todo.MyRegistry.Test do
   use ExUnit.Case
 
   test "happy path" do
-    {:ok, _pid} = Todo.MyRegistry.start_link(nil)
-    :ok = Todo.MyRegistry.register(:some_name)
-    :error = Todo.MyRegistry.register(:some_name)
-    found_pid = Todo.MyRegistry.lookup(:some_name)
-    not_found_pid = Todo.MyRegistry.lookup(:unregistered_name)
+    {:ok, _} = Todo.MyRegistry.start_link(nil)
+    assert Todo.MyRegistry.register(:some_name) == :ok
+    assert Todo.MyRegistry.register(:some_name) == :error
 
-    assert is_pid(found_pid) == true
-    assert not_found_pid == nil
+    assert is_pid(Todo.MyRegistry.lookup(:some_name)) == true
+    assert Todo.MyRegistry.lookup(:unregistered_name) == nil
   end
 
   test "registry traps exits and deregisters process" do
