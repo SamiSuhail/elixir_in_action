@@ -15,15 +15,19 @@ defmodule Todo.MyRegistry do
 
   @impl GenServer
   def init(_) do
+    Process.flag(:trap_exit, true)
     {:ok, %{}}
   end
 
   @impl GenServer
   def handle_call({:register, name, pid}, _, pids) do
     case Map.fetch(pids, name) do
-      {:ok, _pid} -> {:reply, :error, pids}
+      {:ok, _pid} ->
+        {:reply, :error, pids}
+
       _ ->
         new_pids = Map.put_new(pids, name, pid)
+        Process.link(pid)
         {:reply, :ok, new_pids}
     end
   end
@@ -32,5 +36,11 @@ defmodule Todo.MyRegistry do
   def handle_call({:lookup, name}, _, pids) do
     pid = Map.get(pids, name)
     {:reply, pid, pids}
+  end
+
+  @impl GenServer
+  def handle_info({:EXIT, pid, _reason}, pids) do
+    new_pids = Map.filter(pids, fn {_key, curr_pid} -> curr_pid != pid end)
+    {:noreply, new_pids}
   end
 end
