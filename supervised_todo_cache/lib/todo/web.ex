@@ -25,8 +25,9 @@ defmodule Todo.Web do
     list_name = Map.fetch!(conn.params, "list")
     date = Map.fetch!(conn.params, "date") |> Date.from_iso8601!()
 
-    entries = Todo.Cache.server_process(list_name)
-    |> Todo.Server.entries(date)
+    entries =
+      Todo.Cache.server_process(list_name)
+      |> Todo.Server.entries(date)
 
     conn
     |> Plug.Conn.put_resp_content_type("text/json")
