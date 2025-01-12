@@ -24,3 +24,4 @@ todo-*.tar
 
 # Database file, this is likely only temporary while the todo servers are persisted on local storage
 .db/
+.db_test/
