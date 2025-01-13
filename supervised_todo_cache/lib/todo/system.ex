@@ -9,7 +9,6 @@ defmodule Todo.System do
   def init(_) do
     Supervisor.init(
       [
-        Todo.ProcessRegistry,
         Todo.Database,
         Todo.Cache,
         Todo.Web,
