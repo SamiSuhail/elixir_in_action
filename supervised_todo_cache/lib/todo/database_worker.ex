@@ -5,11 +5,15 @@ defmodule Todo.DatabaseWorker do
     do: GenServer.start_link(__MODULE__, db_folder)
 
   def store(worker_pid, key, term) do
-    :rpc.multicall(__MODULE__, :store_local, [worker_pid, key, term])
+    [_results, bad_nodes] = :rpc.multicall(__MODULE__, :store_local, [worker_pid, key, term])
+
+    Enum.each(bad_nodes, fn node -> IO.puts("Failed call to node #{node}.") end)
   end
 
   def delete(worker_pid, key) do
-    :rpc.multicall(__MODULE__, :delete_local, [worker_pid, key])
+    [_results, bad_nodes] = :rpc.multicall(__MODULE__, :delete_local, [worker_pid, key])
+
+    Enum.each(bad_nodes, fn node -> IO.puts("Failed call to node #{node}.") end)
   end
 
   def store_local(worker_pid, key, term),
