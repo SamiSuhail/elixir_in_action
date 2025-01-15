@@ -3,7 +3,8 @@ defmodule Todo.Database do
 
   def child_spec(_) do
     db_folder = Application.fetch_env!(:todo, :db_folder)
-    File.mkdir_p!(db_folder)
+    [node_prefix, _] = node() |> to_string() |> String.split("@")
+    File.mkdir_p!(db_folder |> Path.join(node_prefix))
 
     :poolboy.child_spec(
       __MODULE__,
