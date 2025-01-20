@@ -1,6 +1,12 @@
 defmodule Todo.MixProject do
   use Mix.Project
 
+  def cli do
+    [
+      preferred_envs: [release: :prod]
+    ]
+  end
+
   def project do
     [
       app: :todo,
